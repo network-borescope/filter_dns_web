@@ -14,6 +14,7 @@ typedef struct {
 	char proto[6];
 	//int ip_src_arr[4];
 	//int ip_dst_arr[4];
+	char ip_id[20];
 	char ip_src[32];
 	char ip_dst[32];
 	char port_src[8];
@@ -47,21 +48,21 @@ int header_line(DataHandler *dados, char *start) {
 	char *_;
 	char *p;
 
-    p =  strtok(start, " ");
+  p =  strtok(start, " ");
 	if (!p) return 0;
-    if (strlen(p) != 10) return 0;
+  if (strlen(p) != 10) return 0;
 
-    if (!get_number(dados->data+0, p+0, 4, 0)) return 0;
-    if (!get_number(dados->data+4, p+5, 2, 0)) return 0;
-    if (!get_number(dados->data+6, p+8, 2, 1)) return 0;
+  if (!get_number(dados->data+0, p+0, 4, 0)) return 0;
+  if (!get_number(dados->data+4, p+5, 2, 0)) return 0;
+  if (!get_number(dados->data+6, p+8, 2, 1)) return 0;
 
 
 	p = strtok(NULL, " ");
 	if (!p) return 0;
-    if (strlen(p) < 6) return 0;
+  if (strlen(p) < 6) return 0;
 
-    if (!get_number(dados->hora, p+0, 2, 1)) return 0;
-    if (!get_number(dados->min , p+3, 2, 1)) return 0;
+  if (!get_number(dados->hora, p+0, 2, 1)) return 0;
+  if (!get_number(dados->min , p+3, 2, 1)) return 0;
 
 
 	char *headerType = strtok(NULL, " ");
@@ -73,10 +74,9 @@ int header_line(DataHandler *dados, char *start) {
 
 	p = strtok(NULL, " "); // ttl
 	if (!p) return 0;
-	//if (strlen(p) >= 6) fatal("Erro 4 %s\n", p);
+	if (strlen(p) >= 6) return 0;
 
-    if (!get_number_var(dados->ttl, p, 5)) return 0;
-
+  if (!get_number_var(dados->ttl, p, 5)) return 0;
 
 	_ = strtok(NULL, " ");
 
@@ -84,7 +84,7 @@ int header_line(DataHandler *dados, char *start) {
 	if (!p) return 0;
 	if (strlen(p) >= 11) return 0;
 
-    //if (!get_number_var(dados->val_ip_id, p, 5)) return 0;
+  if (!get_number_var(dados->ip_id, p, 5)) return 0;
 
 	_ = strtok(NULL, " ");
 	_ = strtok(NULL, " ");
@@ -108,7 +108,7 @@ int get_ips_port_dns_query(char *start, DataHandler *data) {
 	char *p = strtok(start, " ");
 
 	if (!(p[0] >= '0' && p[0] <= '9')) return 0;
-	
+
 	char *aux;
 	int count_ip;
 	int count;
@@ -123,7 +123,7 @@ int get_ips_port_dns_query(char *start, DataHandler *data) {
 	strcpy(data->ip_src, p);
 	data->ip_src[count_ip-1] = '\0';
 	strcpy(data->port_src, aux);
-	
+
 	p = strtok(NULL, " "); // >
 	p = strtok(NULL, " ");
 	if (strlen(p) >= 32) return 0;
@@ -177,7 +177,7 @@ void list_flush(List *pl, FILE *global_fout) {
 	Info *pi, *pa;
 	pi = pl->first;
 	if (!pi) return;
-	for (pa = NULL; pi; pa = pi, pi = pi->dict_next) { 
+	for (pa = NULL; pi; pa = pi, pi = pi->dict_next) {
 		if(pi->counter > 0) fprintf(global_fout,"%s;%d\n", pi->key, pi->counter);
 	}
 }
@@ -195,12 +195,12 @@ int main(int argc, char *argv[]) {
 	DataHandler *dados = (DataHandler*)malloc(sizeof(DataHandler));
 
 	mkdir("filtered_data", 0777); // cria diretorio
-	
+
 	char filename[60];
 	sprintf(filename, "filtered_data/%s", argv[1]);
 
 	FILE *pfin = fopen(argv[1], "r");
-	
+
 	while (fgets(line, MAX_LINE_SZ, pfin)) {
 		char *start = line;
 
@@ -221,21 +221,25 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (inner == 1) {
-			if (get_ips_port_dns_query(start, dados)) {
-				if (strcmp(dados->proto , "17") == 0 ) {
-				sprintf( prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->query);
-				dict_insert(d, prev_key, NULL);
-				}
-			}
-			else {
+			//get_ips_and_port(start, dados, lat_lon_id, proto_ports, n);
+			if (get_ips_port_dns_query(start, dados) ) {
+        if (strcmp(dados->port_dst, "53") == 0 ) {
+					//printf("DNS: %s\n",dados->ip_id);
+          //sprintf( prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->query);
+					sprintf( prev_key,"%s;%s;%s;%s", dados->ip_src, dados->ttl,dados->query,dados->ip_id);
+          dict_insert(d, prev_key, NULL);
+        }
+			} else {
 				prev_key[0] = '\0';
 			}
 		}
 		// procurando User-Agent no corpo de requisicoes HTTP
 		else {
 			http_host_line(start, dados);
-      if (strcmp(dados->proto , "6") == 0 ) {
-        sprintf(prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->host);
+      if (strcmp(dados->port_dst, "80") == 0 ) {
+				//printf("HTTP: %s\n",dados->ip_id);
+        //sprintf( prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->host);
+				sprintf( prev_key,"%s;%s;%s;%s", dados->ip_src, dados->ttl,dados->host,dados->ip_id);
         void *pvalue;
         Info *pi =dict_locate(d, prev_key, &pvalue);
         if(pi) pi->counter++;
@@ -252,7 +256,7 @@ int main(int argc, char *argv[]) {
 		list_flush(pl, pfout);
 	}
 	fclose(pfout);
-	
+
 	free(dados);
 	return 0;
 }
