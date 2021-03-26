@@ -12,8 +12,6 @@ typedef struct {
 	char sec[5];
 	char ttl[6];
 	char proto[6];
-	//int ip_src_arr[4];
-	//int ip_dst_arr[4];
 	char ip_id[20];
 	char ip_src[32];
 	char ip_dst[32];
@@ -48,21 +46,21 @@ int header_line(DataHandler *dados, char *start) {
 	char *_;
 	char *p;
 
-  p =  strtok(start, " ");
-	if (!p) return 0;
-  if (strlen(p) != 10) return 0;
+	p =  strtok(start, " ");
+		if (!p) return 0;
+	if (strlen(p) != 10) return 0;
 
-  if (!get_number(dados->data+0, p+0, 4, 0)) return 0;
-  if (!get_number(dados->data+4, p+5, 2, 0)) return 0;
-  if (!get_number(dados->data+6, p+8, 2, 1)) return 0;
+	if (!get_number(dados->data+0, p+0, 4, 0)) return 0;
+	if (!get_number(dados->data+4, p+5, 2, 0)) return 0;
+	if (!get_number(dados->data+6, p+8, 2, 1)) return 0;
 
 
 	p = strtok(NULL, " ");
 	if (!p) return 0;
-  if (strlen(p) < 6) return 0;
+	if (strlen(p) < 6) return 0;
 
-  if (!get_number(dados->hora, p+0, 2, 1)) return 0;
-  if (!get_number(dados->min , p+3, 2, 1)) return 0;
+	if (!get_number(dados->hora, p+0, 2, 1)) return 0;
+	if (!get_number(dados->min , p+3, 2, 1)) return 0;
 
 
 	char *headerType = strtok(NULL, " ");
@@ -76,7 +74,7 @@ int header_line(DataHandler *dados, char *start) {
 	if (!p) return 0;
 	if (strlen(p) >= 6) return 0;
 
-  if (!get_number_var(dados->ttl, p, 5)) return 0;
+  	if (!get_number_var(dados->ttl, p, 5)) return 0;
 
 	_ = strtok(NULL, " ");
 
@@ -84,7 +82,7 @@ int header_line(DataHandler *dados, char *start) {
 	if (!p) return 0;
 	if (strlen(p) >= 11) return 0;
 
-  if (!get_number_var(dados->ip_id, p, 5)) return 0;
+  	if (!get_number_var(dados->ip_id, p, 5)) return 0;
 
 	_ = strtok(NULL, " ");
 	_ = strtok(NULL, " ");
@@ -169,7 +167,7 @@ int http_host_line(char *start, DataHandler *data ){
 	if (strcmp(aux, "Host") == 0) {
 		char *host = start + 6;
 
-    strcpy(data->host, host);
+    	strcpy(data->host, host);
 	}
 }
 
@@ -221,13 +219,10 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (inner == 1) {
-			//get_ips_and_port(start, dados, lat_lon_id, proto_ports, n);
 			if (get_ips_port_dns_query(start, dados) ) {
         if (strcmp(dados->port_dst, "53") == 0 ) {
-					//printf("DNS: %s\n",dados->ip_id);
-          //sprintf( prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->query);
-					sprintf( prev_key,"%s;%s;%s;%s", dados->ip_src, dados->ttl,dados->query,dados->ip_id);
-          dict_insert(d, prev_key, NULL);
+          	sprintf(prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->query);
+          	dict_insert(d, prev_key, NULL);
         }
 			} else {
 				prev_key[0] = '\0';
@@ -236,14 +231,12 @@ int main(int argc, char *argv[]) {
 		// procurando User-Agent no corpo de requisicoes HTTP
 		else {
 			http_host_line(start, dados);
-      if (strcmp(dados->port_dst, "80") == 0 ) {
-				//printf("HTTP: %s\n",dados->ip_id);
-        //sprintf( prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->host);
-				sprintf( prev_key,"%s;%s;%s;%s", dados->ip_src, dados->ttl,dados->host,dados->ip_id);
-        void *pvalue;
-        Info *pi =dict_locate(d, prev_key, &pvalue);
-        if(pi) pi->counter++;
-      }
+			if (strcmp(dados->port_dst, "80") == 0 ) {
+					sprintf(prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->host);
+				void *pvalue;
+				Info *pi =dict_locate(d, prev_key, &pvalue);
+				if(pi) pi->counter++;
+			}
 		}
 	}
 
