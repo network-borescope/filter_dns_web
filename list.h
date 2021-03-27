@@ -6,7 +6,7 @@
 #define MAX_KEY 256
 
 typedef struct list_val{
-	char value[1000];
+	char value[500];
 	struct list_val *next;
 } List_value;
 
