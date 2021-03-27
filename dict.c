@@ -51,23 +51,23 @@ DictInfo *dict_create() {
     return d;
 }
 
-void dict_insert(DictInfo *d, char *prev_key, void * pvalue) {
+void dict_insert(DictInfo *d, char *prev_key, List_value *pvalue) {
     if (prev_key[0] == '\0') return;
     uint32_t keyHash = jenkins_one_at_a_time_hash(prev_key, strlen(prev_key));
     void *pvalue0;
     Info *pInfoLocate = dict_locate(d, prev_key, &pvalue0);
 
-		if (!pInfoLocate) {
-      pInfoLocate = dict_info_alloc();
-      pInfoLocate->counter = -1;
-      pInfoLocate->hash = keyHash;
-      pInfoLocate->pvalue = pvalue;
-      strcpy(pInfoLocate->key, prev_key);
+    if (!pInfoLocate) {
+        pInfoLocate = dict_info_alloc();
+        pInfoLocate->counter = 0;
+        pInfoLocate->hash = keyHash;
+        pInfoLocate->pvalue = pvalue;
+        strcpy(pInfoLocate->key, prev_key);
 
-      int index = (int)(keyHash % DICT_SIZE);
-			append(&d->content[index], pInfoLocate);
-		}
-		pInfoLocate->counter ++;
+        int index = (int)(keyHash % DICT_SIZE);
+        append(&d->content[index], pInfoLocate);
+    }
+    //pInfoLocate->counter++;
 }
 
 

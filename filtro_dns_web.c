@@ -1,5 +1,6 @@
 #include "dict.h"
 #include <sys/stat.h> // mkdir
+
 int mkdir(const char *pathname, mode_t mode); // mkdir header
 
 #define MAX_LINE_SZ 2001
@@ -17,8 +18,9 @@ typedef struct {
 	char ip_dst[32];
 	char port_src[8];
 	char port_dst[8];
-	char host[100];
-	char query[100];
+	char host[200];
+	char query[200];
+	char user_agent[500];
 } DataHandler;
 
 
@@ -46,9 +48,9 @@ int header_line(DataHandler *dados, char *start) {
 	char *_;
 	char *p;
 
-	p =  strtok(start, " ");
-		if (!p) return 0;
-	if (strlen(p) != 10) return 0;
+  	p =  strtok(start, " ");
+	if (!p) return 0;
+  	if (strlen(p) != 10) return 0;
 
 	if (!get_number(dados->data+0, p+0, 4, 0)) return 0;
 	if (!get_number(dados->data+4, p+5, 2, 0)) return 0;
@@ -57,14 +59,14 @@ int header_line(DataHandler *dados, char *start) {
 
 	p = strtok(NULL, " ");
 	if (!p) return 0;
-	if (strlen(p) < 6) return 0;
+  	if (strlen(p) < 6) return 0;
 
-	if (!get_number(dados->hora, p+0, 2, 1)) return 0;
-	if (!get_number(dados->min , p+3, 2, 1)) return 0;
+  	if (!get_number(dados->hora, p+0, 2, 1)) return 0;
+  	if (!get_number(dados->min , p+3, 2, 1)) return 0;
 
 
 	char *headerType = strtok(NULL, " ");
-	if ( !headerType || strcmp(headerType, "IP") != 0) return 0;
+	if (!headerType || strcmp(headerType, "IP") != 0) return 0;
 
 	_ = strtok(NULL, " ");
 	_ = strtok(NULL, " ");
@@ -113,8 +115,8 @@ int get_ips_port_dns_query(char *start, DataHandler *data) {
 
 	if (strlen(p) >= 32) return 0;
 
-	for(aux = p, count_ip = 0, count = 0; count < 4; aux++, count_ip++) {
-		if(*aux == '.') {
+	for (aux = p, count_ip = 0, count = 0; count < 4; aux++, count_ip++) {
+		if (*aux == '.') {
 			count++;
 		}
 	}
@@ -126,8 +128,8 @@ int get_ips_port_dns_query(char *start, DataHandler *data) {
 	p = strtok(NULL, " ");
 	if (strlen(p) >= 32) return 0;
 
-	for(aux = p, count_ip = 0, count = 0; count < 4; aux++, count_ip++) {
-		if(*aux == '.') {
+	for (aux = p, count_ip = 0, count = 0; count < 4; aux++, count_ip++) {
+		if (*aux == '.') {
 			count++;
 		}
 	}
@@ -137,38 +139,50 @@ int get_ips_port_dns_query(char *start, DataHandler *data) {
 
 	data->port_dst[strlen(data->port_dst)-1] = '\0'; // remove ":"
 
-	if(strcmp(data->port_dst, "53") == 0) { // DNS
+	if (strcmp(data->port_dst, "53") == 0) { // DNS
 		p = strtok(NULL, " ");
 		p = strtok(NULL, " ");
 		p = strtok(NULL, " ");
 		p = strtok(NULL, " ");
 		p = strtok(NULL, " ");
-		if(p[strlen(p)-1] == '?') { // line without [1au]
+		if (p[strlen(p)-1] == '?') { // line without [1au]
 			p = strtok(NULL, " ");
 		}
 		else {
 			p = strtok(NULL, " ");
-			if(p[strlen(p)-1] == '?') p = strtok(NULL, " ");
+			if (p[strlen(p)-1] == '?') p = strtok(NULL, " ");
 			else {
 				strcpy(data->query, "0"); // lixo
 				return 0;
 			}
 		}
-		if(p && strlen(p) < 100) strcpy(data->query, p);
+
+		int len = strlen(p);
+		if (p && len < 200) {
+			strcpy(data->query, p);
+			data->query[len-1] = '\0';
+		}
 		else strcpy(data->query, "0"); // lixo
 	}
 
 	return 1;
 }
 
-int http_host_line(char *start, DataHandler *data ){
-	start[4] = '\0';
-	char *aux = start;
-	if (strcmp(aux, "Host") == 0) {
-		char *host = start + 6;
-
-    	strcpy(data->host, host);
+int get_host_or_user(char *start, DataHandler *data ){
+	char *token = strtok(start," ");
+	
+	if (strcmp(token, "Host:") == 0) {
+		token = strtok(NULL, "\n");
+    	strcpy(data->host, token);
+		return 1;
+	}	
+	else if (strcmp(token, "User-Agent:") == 0) {
+		token = strtok(NULL, "\n");
+    	strcpy(data->user_agent, token);
+		return 1;
 	}
+
+	return 0;
 }
 
 void list_flush(List *pl, FILE *global_fout) {
@@ -176,7 +190,9 @@ void list_flush(List *pl, FILE *global_fout) {
 	pi = pl->first;
 	if (!pi) return;
 	for (pa = NULL; pi; pa = pi, pi = pi->dict_next) {
-		if(pi->counter > 0) fprintf(global_fout,"%s;%d\n", pi->key, pi->counter);
+		if (pi->counter > 0) {
+			fprintf(global_fout,"%s;%d\n", pi->key, pi->counter);
+		}
 	}
 }
 
@@ -192,6 +208,9 @@ int main(int argc, char *argv[]) {
 
 	DataHandler *dados = (DataHandler*)malloc(sizeof(DataHandler));
 
+	dados->host[0] = '\0';
+	dados->user_agent[0] = '\0';
+
 	mkdir("filtered_data", 0777); // cria diretorio
 
 	char filename[60];
@@ -204,38 +223,57 @@ int main(int argc, char *argv[]) {
 
 		int inner = 0;
 		while (*start == ' ' || *start == '\t') {
-			if (*start == '\t') { inner += 8; }
-			else { inner++; }
+			if (*start == '\t') inner += 8;
+			else inner++;
 			start++;
 		}
 
-		if (!start[0] || start[0]=='\n') { continue; }
+		if (!start[0] || start[0] == '\n') { continue; }
 		inner /= BLANKS_PER_INDENT;
-
+		
 		// primeiro nao branco
 		if (inner == 0) {
 			if (!header_line(dados, start)) continue;
-
 		}
 
 		if (inner == 1) {
-			if (get_ips_port_dns_query(start, dados) ) {
-        if (strcmp(dados->port_dst, "53") == 0 ) {
-          	sprintf(prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->query);
-          	dict_insert(d, prev_key, NULL);
-        }
-			} else {
+			if (get_ips_port_dns_query(start, dados)) {
+				if (strcmp(dados->port_dst, "53") == 0 ) {
+					sprintf(prev_key, "%s;%s;%s", dados->ip_src, dados->ttl, dados->query);
+					
+					List_value lvalue;
+					
+					sprintf(lvalue.value, "%s;%s;%s;%s;DNS", dados->hora, dados->port_src, dados->ip_dst, dados->ip_id);
+					
+					dict_insert(d, prev_key, &lvalue);
+				}
+			}
+			else {
 				prev_key[0] = '\0';
 			}
 		}
 		// procurando User-Agent no corpo de requisicoes HTTP
 		else {
-			http_host_line(start, dados);
-			if (strcmp(dados->port_dst, "80") == 0 ) {
-					sprintf(prev_key,"%s;%s;%s", dados->ip_src, dados->ttl,dados->host);
-				void *pvalue;
-				Info *pi =dict_locate(d, prev_key, &pvalue);
-				if(pi) pi->counter++;
+			if (!get_host_or_user(start, dados)) continue;
+
+			if (dados->host[0] != '\0' && dados->user_agent[0] != '\0' && strcmp(dados->port_dst, "80") == 0 ) {
+				sprintf(prev_key, "%s;%s;%s", dados->ip_src, dados->ttl, dados->host);
+				
+				List_value lvalue;
+				
+				sprintf(lvalue.value, "%s:%s;%s;%s;%s;%s", dados->hora, dados->min, dados->port_src, dados->ip_dst, dados->ip_id, dados->user_agent);
+				
+				Info *pi = dict_locate(d, prev_key, NULL);
+				
+				if (pi) {
+					//fprintf(stderr, "Match: %s\n", pi->key);
+					pi->counter++;
+					append_value(pi, &lvalue);
+				}
+
+				// clear host and user_agent
+				dados->host[0] = '\0';
+				dados->user_agent[0] = '\0';
 			}
 		}
 	}
@@ -251,5 +289,6 @@ int main(int argc, char *argv[]) {
 	fclose(pfout);
 
 	free(dados);
+
 	return 0;
 }

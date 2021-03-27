@@ -24,6 +24,11 @@ void append(List *l, Info *pi) {
 	l->first = pi;
 }
 
+void append_value(Info *pi, List_value *lvalue) {
+	lvalue->next = pi->pvalue;
+	pi->pvalue = lvalue;
+}
+
 Info *getFirstInfo(List *l) {
 	if (!l || !l->first) { return NULL; }
 	Info *pi = l->first;

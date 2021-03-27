@@ -10,7 +10,7 @@ typedef struct hashDict {
 DictInfo *dict_create();
 //void freeDict(DictInfo *d);
 
-void dict_insert(DictInfo *d, char *key, void* pvalue);
+void dict_insert(DictInfo *d, char *key, List_value* pvalue);
 
 Info *dict_locate(DictInfo *d, char *key, void **ref_pvalue);
 

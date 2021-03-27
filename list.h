@@ -5,11 +5,16 @@
 
 #define MAX_KEY 256
 
+typedef struct list_val{
+	char value[1000];
+	struct list_val *next;
+} List_value;
+
 typedef struct s_Info {
 	struct s_Info *dict_next;
 	char key[MAX_KEY];
 	int counter;
-	void *pvalue;
+	List_value *pvalue;
 	uint32_t hash;
 } Info;
 
@@ -20,10 +25,13 @@ typedef struct {
 	Info *first;
 } List;
 
+
+
 List *createList();
 void freeList(List *l);
 
 void append(List *l, Info *s);
+void append_value(Info *pi, List_value *lvalue);
 
 Info *getFirstInfo(List *l);
 Info *search(List *l, char *key, uint32_t keyHash);
