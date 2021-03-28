@@ -51,7 +51,7 @@ DictInfo *dict_create() {
     return d;
 }
 
-void dict_insert(DictInfo *d, char *prev_key, List_value *pvalue) {
+void dict_insert(DictInfo *d, char *prev_key, List_value *pvalue, int time) {
     if (prev_key[0] == '\0') return;
     uint32_t keyHash = jenkins_one_at_a_time_hash(prev_key, strlen(prev_key));
     void *pvalue0;
@@ -62,6 +62,7 @@ void dict_insert(DictInfo *d, char *prev_key, List_value *pvalue) {
         pInfoLocate->counter = 0;
         pInfoLocate->hash = keyHash;
         pInfoLocate->pvalue = pvalue;
+        pInfoLocate->time_counter = time;
         strcpy(pInfoLocate->key, prev_key);
 
         int index = (int)(keyHash % DICT_SIZE);

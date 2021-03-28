@@ -14,6 +14,7 @@ typedef struct s_Info {
 	struct s_Info *dict_next;
 	char key[MAX_KEY];
 	int counter;
+	int time_counter;
 	List_value *pvalue;
 	uint32_t hash;
 } Info;

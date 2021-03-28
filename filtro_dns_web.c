@@ -5,6 +5,7 @@ int mkdir(const char *pathname, mode_t mode); // mkdir header
 
 #define MAX_LINE_SZ 2001
 #define BLANKS_PER_INDENT 4
+#define TIME_WINDOW 30
 
 typedef struct {
 	char data[15];
@@ -173,14 +174,14 @@ int get_ips_port_dns_query(char *start, DataHandler *data) {
 
 int get_host_or_user(char *start, DataHandler *data ){
 	char *token = strtok(start," ");
-	
+
 	if (strcmp(token, "Host:") == 0) {
 		token = strtok(NULL, "\n");
 		if (strlen(token) >= 200) return 0;
 
     	strcpy(data->host, token);
 		return 1;
-	}	
+	}
 	else if (strcmp(token, "User-Agent:") == 0) {
 		token = strtok(NULL, "\n");
 		if (strlen(token) >= 300) return 0;
@@ -199,7 +200,7 @@ void list_flush(List *pl, FILE *global_fout) {
 	for (pa = NULL; pi; pa = pi, pi = pi->dict_next) {
 		if (pi->counter > 0) {
 			fprintf(global_fout, "%s\n", pi->key);
-			
+
 			List_value *lvalue = pi->pvalue;
 			for (lvalue = pi->pvalue; lvalue; lvalue = lvalue->next) {
 				fprintf(global_fout, "\t%s\n", lvalue->value);
@@ -242,7 +243,7 @@ int main(int argc, char *argv[]) {
 
 		if (!start[0] || start[0] == '\n') { continue; }
 		inner /= BLANKS_PER_INDENT;
-		
+
 		// primeiro nao branco
 		if (inner == 0) {
 			if (!header_line(dados, start)) continue;
@@ -252,12 +253,14 @@ int main(int argc, char *argv[]) {
 			if (get_ips_port_dns_query(start, dados)) {
 				if (strcmp(dados->port_dst, "53") == 0 ) {
 					sprintf(prev_key, "%s;%s;%s", dados->ip_src, dados->ttl, dados->query);
-					
+
 					List_value *lvalue = (List_value*)malloc(sizeof(List_value));
 					lvalue->next = NULL;
 					sprintf(lvalue->value, "DNS %s:%s:%s.%s;%s;%s;%s", dados->hora, dados->min, dados->sec, dados->mili_sec, dados->port_src, dados->ip_dst, dados->ip_id);
-					
-					dict_insert(d, prev_key, lvalue);
+					int timer = 60 * atoi(dados->min) + atoi(dados->sec);
+					//printf("%d\n",timer );
+					//dict_insert(d, prev_key, lvalue);
+					dict_insert(d, prev_key, lvalue,timer);
 				}
 			}
 			else {
@@ -270,15 +273,18 @@ int main(int argc, char *argv[]) {
 
 			if (dados->host[0] != '\0' && dados->user_agent[0] != '\0' && strcmp(dados->port_dst, "80") == 0 ) {
 				sprintf(prev_key, "%s;%s;%s", dados->ip_src, dados->ttl, dados->host);
-								
+				int timer = 60 * atoi(dados->min) + atoi(dados->sec);
+
 				Info *pi = dict_locate(d, prev_key, NULL);
-				
+
 				if (pi) {
-					pi->counter++;
-					
-					List_value *lvalue = (List_value*)malloc(sizeof(List_value));
-					sprintf(lvalue->value, "HTTP %s:%s:%s.%s;%s;%s;%s;%s", dados->hora, dados->min, dados->sec, dados->mili_sec, dados->port_src, dados->ip_dst, dados->ip_id, dados->user_agent);
-					append_value(pi, lvalue);
+					if (timer <= pi->time_counter + TIME_WINDOW){
+						pi->counter++;
+
+						List_value *lvalue = (List_value*)malloc(sizeof(List_value));
+						sprintf(lvalue->value, "HTTP %s:%s:%s.%s;%s;%s;%s;%s", dados->hora, dados->min, dados->sec, dados->mili_sec, dados->port_src, dados->ip_dst, dados->ip_id, dados->user_agent);
+						append_value(pi, lvalue);
+					}
 				}
 
 				// clear host and user_agent
