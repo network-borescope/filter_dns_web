@@ -81,6 +81,19 @@ int header_line(DataHandler *dados, char *start) {
 	if (strlen(p) >= 6) return 0;
 
   	if (!get_number_var(dados->ttl, p, 5)) return 0;
+	
+	int ttl = atoi(dados->ttl);
+	if (ttl < 64) {
+		ttl = 64 - ttl;
+	}
+	else if (ttl < 128) {
+		ttl = 128 - ttl;
+	}
+	else if (ttl < 255) {
+		ttl = 255 - ttl;
+	}
+	else return 0;
+	sprintf(dados->ttl, "%d", ttl);
 
 	_ = strtok(NULL, " ");
 
