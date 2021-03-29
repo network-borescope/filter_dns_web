@@ -67,6 +67,9 @@ void dict_insert(DictInfo *d, char *prev_key, List_value *pvalue, int time) {
 
         int index = (int)(keyHash % DICT_SIZE);
         append(&d->content[index], pInfoLocate);
+    } else {
+      pInfoLocate->time_counter = time;
+      append_value(pInfoLocate, pvalue);
     }
     //pInfoLocate->counter++;
 }
